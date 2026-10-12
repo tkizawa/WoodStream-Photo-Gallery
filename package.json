@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node server.js",
     "build": "node build-static.js",
-    "preview": "node preview.js"
+    "preview": "node preview.js",
+    "icons": "node generate-icons.js"
   },
   "keywords": [],
   "author": "",

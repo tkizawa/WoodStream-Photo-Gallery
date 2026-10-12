@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- 背景グラデーション -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="60%" stop-color="#090a0f" />
+      <stop offset="100%" stop-color="#020617" />
+    </linearGradient>
+
+    <!-- 絞り羽根のシアン〜ブルー〜パープル グラデーション -->
+    <linearGradient id="apertureGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="50%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#6366f1" />
+    </linearGradient>
+
+    <!-- 発光グロー効果 -->
+    <filter id="subtleGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- アイコン背景（ダーク角丸スクエア） -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect width="504" height="504" x="4" y="4" rx="108" fill="none" stroke="rgba(255, 255, 255, 0.12)" stroke-width="4" />
+
+  <!-- 絞り羽根（Aperture）シンボル -->
+  <g transform="translate(256, 256) scale(15.5) translate(-12, -12)"
+     fill="none"
+     stroke="url(#apertureGrad)"
+     stroke-width="1.8"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     filter="url(#subtleGlow)">
+    <circle cx="12" cy="12" r="10"></circle>
+    <path d="M14.31 8l5.74 9.94"></path>
+    <path d="M9.69 8h11.48"></path>
+    <path d="M7.38 12l5.74-9.94"></path>
+    <path d="M9.69 16L3.95 6.06"></path>
+    <path d="M14.31 16H2.83"></path>
+    <path d="M16.62 12l-5.74 9.94"></path>
+  </g>
+</svg>
