@@ -78,9 +78,51 @@ class PhotoGalleryApp {
 
   async init() {
     this.bindEvents();
-    await this.loadGalleryData();
+    await Promise.all([
+      this.loadGalleryConfig(),
+      this.loadGalleryData()
+    ]);
     window.addEventListener('hashchange', () => this.handleRouting());
     this.handleRouting();
+  }
+
+  // ギャラリー設定（gallery.config.json）の読み込みと反映
+  async loadGalleryConfig() {
+    try {
+      const res = await fetch('gallery.config.json').catch(() => null);
+      if (res && res.ok) {
+        const config = await res.json();
+        this.applyConfig(config);
+      }
+    } catch (e) {
+      // 読み込み失敗時は既定表示を維持
+    }
+  }
+
+  // 設定のDOM反映
+  applyConfig(config) {
+    if (!config) return;
+    if (config.siteTitle) {
+      document.title = config.siteTitle;
+    }
+    if (config.logo) {
+      const primary = document.getElementById('logoPrimary');
+      const accent = document.getElementById('logoAccent');
+      const sub = document.getElementById('logoSub');
+      if (primary && config.logo.primary !== undefined) primary.textContent = config.logo.primary;
+      if (accent && config.logo.accent !== undefined) accent.textContent = config.logo.accent;
+      if (sub && config.logo.sub !== undefined) sub.textContent = config.logo.sub;
+    }
+    if (config.hero) {
+      const title = document.getElementById('heroTitle');
+      const subtitle = document.getElementById('heroSubtitle');
+      if (title && config.hero.title) title.textContent = config.hero.title;
+      if (subtitle && config.hero.subtitle) subtitle.textContent = config.hero.subtitle;
+    }
+    if (config.footer) {
+      const copyright = document.getElementById('footerCopyright');
+      if (copyright && config.footer.copyright) copyright.textContent = config.footer.copyright;
+    }
   }
 
   // イベントリスナーの登録

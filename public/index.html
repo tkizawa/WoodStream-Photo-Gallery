@@ -39,7 +39,7 @@
           <path d="M14.31 16H2.83"></path>
           <path d="M16.62 12l-5.74 9.94"></path>
         </svg>
-        <span class="logo-text">Wood<span class="logo-accent">Stream</span> <span class="logo-sub">Photo Gallery</span></span>
+        <span class="logo-text" id="logoText"><span id="logoPrimary">Wood</span><span class="logo-accent" id="logoAccent">Stream</span> <span class="logo-sub" id="logoSub">Photo Gallery</span></span>
       </a>
 
       <!-- パンくずリスト -->
@@ -71,8 +71,8 @@
       <!-- 1. トップページ: アルバム一覧ビュー -->
       <section class="gallery-view" id="albumsView">
         <div class="hero-section">
-          <h1 class="hero-title">Captured Moments</h1>
-          <p class="hero-subtitle">光と影、そしてレンズが捉えた世界。撮影パラメータとともに楽しむフォトギャラリー。</p>
+          <h1 class="hero-title" id="heroTitle">Captured Moments</h1>
+          <p class="hero-subtitle" id="heroSubtitle">光と影、そしてレンズが捉えた世界。撮影パラメータとともに楽しむフォトギャラリー。</p>
           <div class="hero-meta">
             <span class="meta-item"><strong id="heroAlbumCount">0</strong> アルバム</span>
             <span class="meta-divider">•</span>
@@ -132,6 +132,16 @@
       </section>
     </div>
   </main>
+
+  <!-- フッター -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <p class="footer-copyright" id="footerCopyright">© 2026 Tomoki Kizawa. All rights reserved.</p>
+      <p class="footer-attribution" id="footerAttribution">
+        Powered by <a href="https://github.com/tkizawa/WoodStream-Photo-Gallery" target="_blank" rel="noopener noreferrer">WoodStream Photo Gallery</a>
+      </p>
+    </div>
+  </footer>
 
   <!-- 4. 拡大表示モーダル（Lightbox & EXIFサイドパネル） -->
   <div class="lightbox-modal" id="lightboxModal" aria-hidden="true" role="dialog">

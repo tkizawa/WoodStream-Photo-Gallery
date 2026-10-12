@@ -3,6 +3,11 @@ node_modules/
 dist/
 Installer/
 MSIX/
-images/
 .DS_Store
 Thumbs.db
+
+# 写真データは除外（ガイドとサンプルフォルダ構造のみ保持）
+images/*
+!images/README.md
+!images/Sample-Album/
+!images/Sample-Album/**

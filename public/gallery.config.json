@@ -1,0 +1,18 @@
+{
+  "siteTitle": "WoodStream Photo Gallery",
+  "siteDescription": "厳選された写真の美しさと撮影メタデータ（EXIF）を体験するポートフォリオギャラリー",
+  "author": "Tomoki Kizawa",
+  "logo": {
+    "primary": "Wood",
+    "accent": "Stream",
+    "sub": "Photo Gallery"
+  },
+  "hero": {
+    "title": "Captured Moments",
+    "subtitle": "光と影、そしてレンズが捉えた世界。撮影パラメータとともに楽しむフォトギャラリー。"
+  },
+  "footer": {
+    "copyright": "© 2026 Tomoki Kizawa. All rights reserved.",
+    "attribution": "Powered by WoodStream Photo Gallery"
+  }
+}
