@@ -1581,43 +1581,40 @@ body {
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-/* 共有ボタン */
-.share-btn {
+/* ビュータイトル行とアイコンボタン */
+.view-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--text-secondary, #e2e8f0);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 9999px;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-secondary, #cbd5e1);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  margin-left: auto;
 }
 
-.share-btn:hover {
+.header-icon-btn:hover {
   color: #38bdf8;
-  background: rgba(56, 189, 248, 0.12);
+  background: rgba(56, 189, 248, 0.15);
   border-color: rgba(56, 189, 248, 0.4);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2);
+  transform: translateY(-1px) scale(1.06);
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.25);
 }
 
-.share-btn:active {
-  transform: translateY(0);
-}
-
-.share-btn svg {
-  transition: transform 0.2s ease;
-}
-
-.share-btn:hover svg {
-  transform: scale(1.1);
+.header-icon-btn:active {
+  transform: translateY(0) scale(0.96);
 }
 
 /* カード右上の共有ボタン */

@@ -19,7 +19,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body class="dark-theme">
   <!-- 背景アンビエントグラデーション -->
@@ -121,19 +121,20 @@
             アルバム一覧へ戻る
           </button>
           <div class="header-titles">
-            <h2 class="view-title" id="datesViewTitle">アルバム名</h2>
+            <div class="view-title-row">
+              <h2 class="view-title" id="datesViewTitle">アルバム名</h2>
+              <button class="header-icon-btn" id="btnShareAlbum" type="button" title="アルバムを共有" aria-label="Share album">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+              </button>
+            </div>
             <p class="view-desc" id="datesViewDesc">撮影日ごとのフォルダ</p>
           </div>
-          <button class="share-btn" id="btnShareAlbum" type="button" title="このアルバムのリンクを共有">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="18" cy="5" r="3"></circle>
-              <circle cx="6" cy="12" r="3"></circle>
-              <circle cx="18" cy="19" r="3"></circle>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-            </svg>
-            <span>共有</span>
-          </button>
         </div>
 
         <div class="dates-grid" id="datesGrid">
@@ -153,20 +154,21 @@
               <span class="album-tag" id="photosAlbumTag">Album</span>
               <span class="date-tag" id="photosDateTag">2026-00-00</span>
             </div>
-            <h2 class="view-title" id="photosViewTitle">写真コレクション</h2>
+            <div class="view-title-row">
+              <h2 class="view-title" id="photosViewTitle">写真コレクション</h2>
+              <button class="header-icon-btn" id="btnShareDateFolder" type="button" title="撮影日フォルダを共有" aria-label="Share folder">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3"></circle>
+                  <circle cx="6" cy="12" r="3"></circle>
+                  <circle cx="18" cy="19" r="3"></circle>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                </svg>
+              </button>
+              <button class="admin-btn" id="btnSelectAllPhotos" type="button" style="display: none; margin-left: auto;">すべて選択</button>
+            </div>
             <p class="view-desc" id="photosViewCount">0 枚の写真</p>
           </div>
-          <button class="share-btn" id="btnShareDateFolder" type="button" title="この撮影日フォルダのリンクを共有">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="18" cy="5" r="3"></circle>
-              <circle cx="6" cy="12" r="3"></circle>
-              <circle cx="18" cy="19" r="3"></circle>
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-            </svg>
-            <span>共有</span>
-          </button>
-          <button class="admin-btn" id="btnSelectAllPhotos" type="button" style="display: none; margin-left: auto;">すべて選択</button>
         </div>
 
         <!-- 500px風 Justified タイルコンテナ -->
@@ -560,6 +562,6 @@
   <!-- トースト通知コンテナ -->
   <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 
-  <script src="js/app.js?v=4"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>
