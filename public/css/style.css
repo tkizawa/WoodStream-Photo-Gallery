@@ -1580,3 +1580,135 @@ body {
   padding-top: 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
+
+/* 共有ボタン */
+.share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary, #e2e8f0);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  margin-left: auto;
+}
+
+.share-btn:hover {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2);
+}
+
+.share-btn:active {
+  transform: translateY(0);
+}
+
+.share-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.share-btn:hover svg {
+  transform: scale(1.1);
+}
+
+/* カード右上の共有ボタン */
+.card-share-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  cursor: pointer;
+  z-index: 5;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 0.85;
+}
+
+.album-card:hover .card-share-btn,
+.date-card:hover .card-share-btn {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.card-share-btn:hover {
+  background: rgba(56, 189, 248, 0.9) !important;
+  border-color: #38bdf8 !important;
+  color: #0f172a !important;
+  transform: scale(1.15) !important;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.4);
+}
+
+/* トースト通知 */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  font-size: 0.9rem;
+  font-weight: 500;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.2);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: translateY(16px) scale(0.95);
+  animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: auto;
+}
+
+.toast.fade-out {
+  animation: toastOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  color: #38bdf8;
+}
+
+@keyframes toastIn {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes toastOut {
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+}
+

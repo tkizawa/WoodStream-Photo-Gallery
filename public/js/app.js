@@ -55,6 +55,10 @@ class PhotoGalleryApp {
       btnToggleZoom: document.getElementById('btnToggleZoom'),
       btnToggleSidebar: document.getElementById('btnToggleSidebar'),
       btnDownload: document.getElementById('btnDownload'),
+      btnSharePhoto: document.getElementById('btnSharePhoto'),
+      btnShareAlbum: document.getElementById('btnShareAlbum'),
+      btnShareDateFolder: document.getElementById('btnShareDateFolder'),
+      toastContainer: document.getElementById('toastContainer'),
       lightboxSidebar: document.getElementById('lightboxSidebar'),
 
       // EXIF Fields
@@ -217,6 +221,43 @@ class PhotoGalleryApp {
     // ズーム切替
     this.dom.btnToggleZoom?.addEventListener('click', () => this.toggleZoom());
     this.dom.lightboxImage?.addEventListener('click', () => this.toggleZoom());
+
+    // 写真共有ボタン
+    this.dom.btnSharePhoto?.addEventListener('click', () => {
+      const photo = this.currentPhotoList?.[this.currentPhotoIndex];
+      if (!photo) return;
+      const title = photo.title || photo.fileName;
+      this.share({
+        title: `${title} - WoodStream Photo Gallery`,
+        text: `写真「${title}」の撮影データ・高精細ビュー`,
+        url: window.location.href
+      });
+    });
+
+    // アルバム共有ボタン
+    this.dom.btnShareAlbum?.addEventListener('click', () => {
+      if (!this.currentAlbum) return;
+      const name = this.currentAlbum.name;
+      const url = `${window.location.origin}${window.location.pathname}#/album/${encodeURIComponent(this.currentAlbum.id)}`;
+      this.share({
+        title: `${name} - アルバム | WoodStream Photo Gallery`,
+        text: `アルバム「${name}」の写真コレクション`,
+        url
+      });
+    });
+
+    // 撮影日フォルダ共有ボタン
+    this.dom.btnShareDateFolder?.addEventListener('click', () => {
+      if (!this.currentAlbum || !this.currentDate) return;
+      const albumName = this.currentAlbum.name;
+      const date = this.currentDate.date;
+      const url = `${window.location.origin}${window.location.pathname}#/album/${encodeURIComponent(this.currentAlbum.id)}/${encodeURIComponent(date)}`;
+      this.share({
+        title: `${albumName} (${date}) | WoodStream Photo Gallery`,
+        text: `「${albumName}」${date} の写真一覧`,
+        url
+      });
+    });
 
     // サイドバー切替
     this.dom.btnToggleSidebar?.addEventListener('click', () => {
@@ -456,6 +497,15 @@ class PhotoGalleryApp {
         ` : ''}
         <div class="album-thumb-wrap">
           ${coverPhoto ? `<img src="${thumbUrl}" alt="${album.name}" loading="lazy">` : '<div class="no-img">No Photo</div>'}
+          <button type="button" class="card-share-btn" data-share-album="${encodeURIComponent(album.id)}" title="アルバムを共有">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+          </button>
           <div class="album-badge-overlay">
             <span class="album-count-badge">${album.totalPhotos} 枚</span>
           </div>
@@ -479,6 +529,16 @@ class PhotoGalleryApp {
           this.deleteAlbum(album);
         });
       }
+
+      card.querySelector('[data-share-album]')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = `${window.location.origin}${window.location.pathname}#/album/${encodeURIComponent(album.id)}`;
+        this.share({
+          title: `${album.name} - アルバム | WoodStream Photo Gallery`,
+          text: `アルバム「${album.name}」の写真コレクション`,
+          url
+        });
+      });
 
       card.addEventListener('click', () => {
         window.location.hash = `#/album/${encodeURIComponent(album.id)}`;
@@ -539,6 +599,15 @@ class PhotoGalleryApp {
         ` : ''}
         <div class="date-thumb-wrap">
           ${coverPhoto ? `<img src="${thumbUrl}" alt="${dateGroup.date}" loading="lazy">` : ''}
+          <button type="button" class="card-share-btn" data-share-date="${encodeURIComponent(dateGroup.date)}" title="撮影日フォルダを共有">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+          </button>
         </div>
         <div class="date-info-body">
           <div class="date-title-group">
@@ -579,6 +648,16 @@ class PhotoGalleryApp {
           }
         });
       }
+
+      card.querySelector('[data-share-date]')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = `${window.location.origin}${window.location.pathname}#/album/${encodeURIComponent(album.id)}/${encodeURIComponent(dateGroup.date)}`;
+        this.share({
+          title: `${album.name} (${dateGroup.date}) | WoodStream Photo Gallery`,
+          text: `「${album.name}」${dateGroup.date} の写真一覧`,
+          url
+        });
+      });
 
       card.addEventListener('click', () => {
         window.location.hash = `#/album/${encodeURIComponent(album.id)}/${encodeURIComponent(dateGroup.date)}`;
@@ -1349,6 +1428,60 @@ class PhotoGalleryApp {
     if (this.dom.batchCount) {
       this.dom.batchCount.textContent = `${count} 枚選択中`;
     }
+  }
+
+  // 共有処理（Web Share API 優先、非対応時はクリップボードコピー + トースト通知）
+  async share({ title, text, url }) {
+    const fullUrl = url || window.location.href;
+    const shareData = {
+      title: title || document.title,
+      text: text || '',
+      url: fullUrl
+    };
+
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        if (err.name === 'AbortError') return; // ユーザーがキャンセル
+      }
+    }
+
+    // クリップボードへコピー
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(fullUrl);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = fullUrl;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      this.showToast('共有リンクをクリップボードにコピーしました！');
+    } catch (e) {
+      this.showToast('リンクのコピーに失敗しました', 'error');
+    }
+  }
+
+  showToast(message, type = 'info') {
+    if (!this.dom.toastContainer) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    const checkIcon = type === 'error'
+      ? `<svg class="toast-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`
+      : `<svg class="toast-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`;
+    toast.innerHTML = `${checkIcon}<span>${this.escapeHtml(message)}</span>`;
+    this.dom.toastContainer.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 300);
+    }, 2500);
   }
 }
 

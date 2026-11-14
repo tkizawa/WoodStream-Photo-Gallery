@@ -124,6 +124,16 @@
             <h2 class="view-title" id="datesViewTitle">アルバム名</h2>
             <p class="view-desc" id="datesViewDesc">撮影日ごとのフォルダ</p>
           </div>
+          <button class="share-btn" id="btnShareAlbum" type="button" title="このアルバムのリンクを共有">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+            <span>共有</span>
+          </button>
         </div>
 
         <div class="dates-grid" id="datesGrid">
@@ -146,6 +156,16 @@
             <h2 class="view-title" id="photosViewTitle">写真コレクション</h2>
             <p class="view-desc" id="photosViewCount">0 枚の写真</p>
           </div>
+          <button class="share-btn" id="btnShareDateFolder" type="button" title="この撮影日フォルダのリンクを共有">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+            <span>共有</span>
+          </button>
           <button class="admin-btn" id="btnSelectAllPhotos" type="button" style="display: none; margin-left: auto;">すべて選択</button>
         </div>
 
@@ -201,6 +221,15 @@
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
           </a>
+          <button class="lb-icon-btn" id="btnSharePhoto" title="写真を共有" aria-label="Share photo">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="18" cy="5" r="3"></circle>
+              <circle cx="6" cy="12" r="3"></circle>
+              <circle cx="18" cy="19" r="3"></circle>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+            </svg>
+          </button>
           <button class="lb-icon-btn close-btn" id="btnCloseLightbox" title="閉じる (Esc)" aria-label="Close modal">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -528,6 +557,9 @@
     </div>
   </div>
 
-  <script src="js/app.js?v=3"></script>
+  <!-- トースト通知コンテナ -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>
