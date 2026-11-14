@@ -1,123 +1,101 @@
 # WoodStream Photo Gallery
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Deploy to GitHub Pages](https://github.com/tkizawa/WoodStream-Photo-Gallery/actions/workflows/deploy.yml/badge.svg)](https://github.com/tkizawa/WoodStream-Photo-Gallery/actions/workflows/deploy.yml)
 
-写真を美しく公開・閲覧するための、洗練されたWebフォトギャラリーです。  
-**500pxスタイルのタイルグリッドレイアウト**、スムーズなアニメーション、そして写真の**EXIF撮影データ（カメラ・レンズ・シャッタースピード・F値・ISOなど）**を一覧表示する詳細ビューを搭載しています。
+写真を美しく公開・閲覧・管理するための、洗練されたWebフォトギャラリーです。  
+**500pxスタイルのタイルグリッドレイアウト**、詳細な**EXIF撮影データ（カメラ・レンズ・シャッタースピード・F値・ISOなど）**のインスペクター表示、そして**Webブラウザ管理UI**および**MCP（Model Context Protocol）**による写真のアップロード・管理に対応しています。
 
 ---
 
 ## ✨ 主な機能・特徴
 
-1. **フォルダ構造と完全連動**
-   - `images/` 配下にフォルダを置くだけで「アルバム」「撮影日」を自動認識。
-2. **500px風タイルグリッド表示（Justified Gallery）**
+1. **洗練されたタイルグリッド表示（Justified Gallery）**
    - 縦写真・横写真のアスペクト比を自動計算し、隙間なく美しく整列。
-3. **詳細EXIFメタデータインスペクター**
+2. **詳細EXIFメタデータインスペクター**
    - 写真をクリックすると拡大表示＆右側に撮影パラメータを一目で見やすく表示。
    - 📷 カメラ機種名 / 🔭 レンズ名 / ⚙️ F値 / SS / ISO / 露出補正 / 焦点距離 / 測光方式など。
-4. **かんたんカスタマイズ**
-   - `gallery.config.json` を編集するだけで、サイト名や撮影者名、ロゴを自由に変更可能。
-5. **高速表示（自動WebP変換）**
-   - 10MB以上の重いRAW現像後JPEGでも、自動で軽量なWebPサムネイルを生成して瞬時に表示。
-6. **GitHub Pages 完全自動デプロイ対応**
-   - リポジトリに写真をプッシュするだけで、GitHub Actions が自動で静的サイトをビルド・世界中に無料公開。
+3. **Webブラウザからの直接管理（管理者モード）**
+   - 画面上の「編集モード」からパスワード認証でログイン。
+   - 写真のドラッグ＆ドロップアップロード、新規アルバム作成、日付グループ作成、写真の移動・削除に対応。
+4. **AI連携（MCP サーバー機能搭載）**
+   - さくらのレンタルサーバ上で Streamable HTTP MCP エンドポイント（`public/mcp.php`）が稼働。
+   - AIアシスタント（Claude、Gemini 等）からアルバム作成、写真アップロード、検索、整理が可能。
+5. **高速表示（自動WebP変換サムネイル）**
+   - アップロードされた高解像度JPEGから自動で軽量WebPサムネイルを生成・キャッシュ。
+6. **データベース（MySQL）＋ファイルストレージ**
+   - アルバム情報、写真メタデータ、EXIF JSON を MySQL で安全・高速に管理。
 
 ---
 
-## 🚀 クイックスタート：自分専用のギャラリーを作る
-
-写真仲間の皆さんどなたでも、以下のステップで自分だけのフォトギャラリーを立ち上げられます。
-
-### ステップ 1: リポジトリの作成
-1. このページ上部にある緑色の **[Use this template]**（このテンプレートを使用）ボタンをクリックします。
-2. **[Create a new repository]** を選択し、ご自身のアカウントに新しいリポジトリを作成します（リポジトリ名は `my-photo-gallery` など自由でOKです）。
-
-### ステップ 2: パソコンにクローン＆写真を配置
-リポジトリをご自身のパソコンにダウンロード（Clone）し、`images/` フォルダ内に写真を配置します：
+## 📂 ディレクトリ構成
 
 ```text
-images/
-  └── [アルバム名]/
-        └── [撮影日 (YYYY-MM-DD)]/
-              ├── IMG_0001.JPG
-              └── IMG_0002.JPG
+photo/
+  ├── public/                 # 公開 Web ルート（さくらサーバーの www 配下へ配置）
+  │     ├── index.html        # ギャラリー SPA フロントエンド
+  │     ├── api.php           # REST API エンドポイント
+  │     ├── mcp.php           # MCP (Model Context Protocol) エンドポイント
+  │     ├── config.php        # サーバー設定（DB接続、認証情報 ※.gitignore）
+  │     ├── config.example.php# 設定テンプレート
+  │     ├── gallery.config.json # サイト基本情報設定（タイトル、作者名、ロゴ等）
+  │     ├── css/              # スタイルシート
+  │     ├── js/               # フロントエンドスクリプト
+  │     ├── lib/
+  │     │     └── GalleryCore.php # バックエンド共通コアクラス
+  │     ├── sql/
+  │     │     └── schema.sql  # MySQL テーブル初期化スキーマ
+  │     └── images/           # 写真アップロード先（サーバー管理）
+  ├── generate-icons.js       # アイコン・ファビコン生成スクリプト
+  ├── package.json            # 開発用設定
+  └── README.md
 ```
-
-> **例:** `images/風景/2026-05-02/DSC_0001.JPG`  
-> 詳細は [`images/README.md`](images/README.md) をご覧ください。
-
-### ステップ 3: サイト設定の編集
-[`public/gallery.config.json`](public/gallery.config.json) を開き、サイト名やお名前を設定します：
-
-```json
-{
-  "siteTitle": "山田太郎's Photo Gallery",
-  "siteDescription": "四季の風景と野鳥写真のポートフォリオ",
-  "author": "Taro Yamada",
-  "logo": {
-    "primary": "Taro",
-    "accent": "Photo",
-    "sub": "Gallery"
-  },
-  "hero": {
-    "title": "Through My Lens",
-    "subtitle": "ファインダー越しに出会った光と色彩の記録。"
-  },
-  "footer": {
-    "copyright": "© 2026 Taro Yamada. All rights reserved."
-  }
-}
-```
-
-### ステップ 4: ローカルで確認する
-Node.js（v18以上）がインストールされたパソコンでコマンドを実行します：
-
-```bash
-# 依存パッケージのインストール（初回のみ）
-npm install
-
-# サーバー起動
-npm start
-```
-ブラウザで `http://localhost:3000` を開くと、あなたの写真が並んだギャラリーが表示されます！
 
 ---
 
-## 🌐 無料でインターネットに公開する（GitHub Pages）
+## 🚀 さくらのレンタルサーバへの導入方法
 
-サーバー契約なしで、世界中にギャラリーを公開できます。
+### ステップ 1: MySQL データベースの準備
+さくらのコントロールパネルで MySQL データベースを作成し、`public/sql/schema.sql` をインポート（または実行）してテーブルを作成します。
 
-1. ご自身のリポジトリの **Settings（設定）** タブを開きます。
-2. 左メニューの **Pages** をクリックします。
-3. **Build and deployment** の **Source** で **「GitHub Actions」** を選択します。
-4. あとは `images/` に写真を追加して GitHub に `git push` するだけ！  
-   自動的にサイトがビルドされ、数分で `https://<ユーザー名>.github.io/<リポジトリ名>/` にギャラリーが公開されます。
+### ステップ 2: 設定ファイルの作成
+`public/config.example.php` をコピーして `public/config.php` を作成し、DB接続情報・管理者パスワードハッシュ・MCPトークンを設定します。
 
----
-
-## 🛠 その他の公開方法
-
-### さくらのレンタルサーバ / 一般レンタルサーバー
-```bash
-npm run build
+```php
+return [
+    'db' => [
+        'enabled' => true,
+        'host' => 'mysqlXXX.db.sakura.ne.jp',
+        'dbname' => 'your_db_name',
+        'username' => 'your_db_user',
+        'password' => 'your_db_password',
+        'charset' => 'utf8mb4',
+    ],
+    'admin' => [
+        'username' => 'admin',
+        'password_hash' => '...',
+    ],
+    'mcp' => [
+        'enabled' => true,
+        'bearer_token' => 'YOUR_SECRET_TOKEN',
+    ],
+];
 ```
-を実行すると `dist/` フォルダに静的サイト一式（HTML, CSS, JS, サムネイル画像, JSON）が書き出されます。  
-`dist/` の中身を FTP などでサーバーの公開フォルダ（`www/` など）にアップロードするだけで動作します。
+
+### ステップ 3: サーバーへアップロード
+`public/` フォルダの中身を、さくらのレンタルサーバの公開ディレクトリ（`www/` やサブドメイン用フォルダ）へ FTP / SFTP 等でアップロードします。
 
 ---
 
-## 🎨 アイコンのカスタマイズ
-新しいアプリアイコンやファビコンを生成したい場合は、以下のコマンドを実行します：
+## 🎨 アイコンの再生成
+
+アプリアイコンやファビコンを更新したい場合は、Node.js 環境で以下を実行します：
 
 ```bash
 npm run icons
 ```
-`favicon.svg`, `favicon.ico`, `apple-touch-icon.png` などのマルチサイズアイコンが一括生成されます。
 
 ---
 
 ## 📄 ライセンス
 
-本プロジェクトは [MIT License](LICENSE) の下で公開されています。商用・非商用問わず、どなたでも自由にご利用・改変いただけます。
+本プロジェクトは [MIT License](LICENSE) の下で公開されています。

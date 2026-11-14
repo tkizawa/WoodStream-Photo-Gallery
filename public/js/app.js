@@ -11,6 +11,10 @@ class PhotoGalleryApp {
     this.currentPhotoList = [];
     this.currentPhotoIndex = -1;
     this.isZoomed = false;
+    this.isAdmin = false;
+    this.adminUser = null;
+    this.selectedPhotoIds = new Set();
+    this.uploadQueueFiles = [];
 
     // DOM Elements
     this.dom = {
@@ -70,7 +74,67 @@ class PhotoGalleryApp {
       exifResolution: document.getElementById('exifResolution'),
       exifAspectRatio: document.getElementById('exifAspectRatio'),
       exifFileSize: document.getElementById('exifFileSize'),
-      exifAlbumName: document.getElementById('exifAlbumName')
+      exifAlbumName: document.getElementById('exifAlbumName'),
+
+      // Edit Mode / Admin UI
+      btnEditMode: document.getElementById('btnEditMode'),
+      btnEditModeLabel: document.getElementById('btnEditModeLabel'),
+      adminToolbar: document.getElementById('adminToolbar'),
+      adminUserLabel: document.getElementById('adminUserLabel'),
+      btnOpenUpload: document.getElementById('btnOpenUpload'),
+      btnNewAlbum: document.getElementById('btnNewAlbum'),
+      btnSyncFolders: document.getElementById('btnSyncFolders'),
+      btnLogout: document.getElementById('btnLogout'),
+
+      loginModal: document.getElementById('loginModal'),
+      loginForm: document.getElementById('loginForm'),
+      loginUsername: document.getElementById('loginUsername'),
+      loginPassword: document.getElementById('loginPassword'),
+      loginError: document.getElementById('loginError'),
+
+      uploadModal: document.getElementById('uploadModal'),
+      uploadForm: document.getElementById('uploadForm'),
+      uploadDropzone: document.getElementById('uploadDropzone'),
+      uploadFilesInput: document.getElementById('uploadFilesInput'),
+      uploadFileList: document.getElementById('uploadFileList'),
+      uploadAlbumSelect: document.getElementById('uploadAlbumSelect'),
+      uploadNewAlbumWrap: document.getElementById('uploadNewAlbumWrap'),
+      uploadNewAlbumName: document.getElementById('uploadNewAlbumName'),
+      uploadDateGroup: document.getElementById('uploadDateGroup'),
+      uploadTags: document.getElementById('uploadTags'),
+      uploadStatus: document.getElementById('uploadStatus'),
+      btnSubmitUpload: document.getElementById('btnSubmitUpload'),
+
+      albumModal: document.getElementById('albumModal'),
+      albumModalTitle: document.getElementById('albumModalTitle'),
+      albumForm: document.getElementById('albumForm'),
+      albumFormId: document.getElementById('albumFormId'),
+      albumFormName: document.getElementById('albumFormName'),
+      albumFormDesc: document.getElementById('albumFormDesc'),
+
+      movePhotosModal: document.getElementById('movePhotosModal'),
+      movePhotosForm: document.getElementById('movePhotosForm'),
+      moveTargetAlbum: document.getElementById('moveTargetAlbum'),
+      moveNewAlbumWrap: document.getElementById('moveNewAlbumWrap'),
+      moveNewAlbumName: document.getElementById('moveNewAlbumName'),
+      moveTargetDateGroup: document.getElementById('moveTargetDateGroup'),
+
+      batchBar: document.getElementById('batchBar'),
+      batchCount: document.getElementById('batchCount'),
+      btnBatchMove: document.getElementById('btnBatchMove'),
+      btnBatchDelete: document.getElementById('btnBatchDelete'),
+      btnBatchClear: document.getElementById('btnBatchClear'),
+      btnSelectAllPhotos: document.getElementById('btnSelectAllPhotos'),
+
+      adminPhotoEditor: document.getElementById('adminPhotoEditor'),
+      photoEditForm: document.getElementById('photoEditForm'),
+      editPhotoTitle: document.getElementById('editPhotoTitle'),
+      editPhotoCaption: document.getElementById('editPhotoCaption'),
+      editPhotoTags: document.getElementById('editPhotoTags'),
+      editPhotoAlbum: document.getElementById('editPhotoAlbum'),
+      editPhotoDateGroup: document.getElementById('editPhotoDateGroup'),
+      editPhotoPublic: document.getElementById('editPhotoPublic'),
+      btnDeleteSinglePhoto: document.getElementById('btnDeleteSinglePhoto')
     };
 
     this.init();
@@ -78,10 +142,14 @@ class PhotoGalleryApp {
 
   async init() {
     this.bindEvents();
+    this.bindAdminEvents();
     await Promise.all([
       this.loadGalleryConfig(),
       this.loadGalleryData()
     ]);
+    if (this.backendMode === 'php') {
+      await this.checkAuthStatus();
+    }
     window.addEventListener('hashchange', () => this.handleRouting());
     this.handleRouting();
   }
@@ -177,33 +245,52 @@ class PhotoGalleryApp {
     });
   }
 
-  // ギャラリーデータのロード（静的data.json -> Node API -> PHP の順で確実に自動判別）
+  // ギャラリーデータのロード（PHP API -> Node API -> 静的data.json の順で自動判別）
   async loadGalleryData() {
     this.backendMode = 'static';
     try {
-      // 1. 静的ビルド (data.json) のチェック（最優先）
-      let res = await fetch('data.json').catch(() => null);
-      if (res && res.ok) {
-        this.backendMode = 'static';
-      } else {
-        // 2. Node.js 開発サーバー (/api/data) のチェック
-        res = await fetch('/api/data').catch(() => null);
-        if (res && res.ok) {
-          this.backendMode = 'node';
-        } else {
-          // 3. さくらのレンタルサーバ（PHP環境）のチェック
-          res = await fetch('api.php').catch(() => null);
-          if (res && res.ok) {
-            this.backendMode = 'php';
+      let res = null;
+      let parsedData = null;
+
+      // 1. さくらのレンタルサーバ（PHP環境）のチェック（古いdata.jsonが残っていてもPHPを優先）
+      const phpRes = await fetch('api.php').catch(() => null);
+      if (phpRes && phpRes.ok && (phpRes.headers.get('content-type') || '').includes('application/json')) {
+        parsedData = await phpRes.json().catch(() => null);
+        if (parsedData && Array.isArray(parsedData.albums)) {
+          res = phpRes;
+          this.backendMode = 'php';
+        }
+      }
+
+      // 2. Node.js 開発サーバー (/api/data) のチェック
+      if (!res) {
+        const nodeRes = await fetch('/api/data').catch(() => null);
+        if (nodeRes && nodeRes.ok && (nodeRes.headers.get('content-type') || '').includes('application/json')) {
+          parsedData = await nodeRes.json().catch(() => null);
+          if (parsedData && Array.isArray(parsedData.albums)) {
+            res = nodeRes;
+            this.backendMode = 'node';
           }
         }
       }
 
-      if (!res || !res.ok) {
+      // 3. 静的ビルド (data.json) のチェック
+      if (!res) {
+        const staticRes = await fetch('data.json').catch(() => null);
+        if (staticRes && staticRes.ok) {
+          parsedData = await staticRes.json().catch(() => null);
+          if (parsedData) {
+            res = staticRes;
+            this.backendMode = 'static';
+          }
+        }
+      }
+
+      if (!res || !parsedData) {
         throw new Error('No valid photo data source found');
       }
 
-      this.data = await res.json();
+      this.data = parsedData;
       this.updateGlobalStats();
       this.dom.loadingState.style.display = 'none';
       this.dom.viewContainer.style.display = 'block';
@@ -361,6 +448,12 @@ class PhotoGalleryApp {
       const thumbUrl = coverPhoto ? this.getThumbnailUrl(coverPhoto, 800) : '';
 
       card.innerHTML = `
+        ${this.isAdmin && album.albumId ? `
+          <div class="album-admin-actions">
+            <button type="button" class="album-admin-btn edit" data-album-edit="${album.albumId}">編集</button>
+            <button type="button" class="album-admin-btn delete" data-album-delete="${album.albumId}">削除</button>
+          </div>
+        ` : ''}
         <div class="album-thumb-wrap">
           ${coverPhoto ? `<img src="${thumbUrl}" alt="${album.name}" loading="lazy">` : '<div class="no-img">No Photo</div>'}
           <div class="album-badge-overlay">
@@ -375,6 +468,17 @@ class PhotoGalleryApp {
           </div>
         </div>
       `;
+
+      if (this.isAdmin && album.albumId) {
+        card.querySelector('[data-album-edit]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openAlbumModal(album);
+        });
+        card.querySelector('[data-album-delete]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.deleteAlbum(album);
+        });
+      }
 
       card.addEventListener('click', () => {
         window.location.hash = `#/album/${encodeURIComponent(album.id)}`;
@@ -427,6 +531,12 @@ class PhotoGalleryApp {
       const thumbUrl = coverPhoto ? this.getThumbnailUrl(coverPhoto, 700) : '';
 
       card.innerHTML = `
+        ${this.isAdmin && album.albumId ? `
+          <div class="album-admin-actions">
+            <button type="button" class="album-admin-btn edit" data-date-rename="${this.escapeHtml(dateGroup.date)}">名前変更</button>
+            <button type="button" class="album-admin-btn delete" data-date-delete="${this.escapeHtml(dateGroup.date)}">削除</button>
+          </div>
+        ` : ''}
         <div class="date-thumb-wrap">
           ${coverPhoto ? `<img src="${thumbUrl}" alt="${dateGroup.date}" loading="lazy">` : ''}
         </div>
@@ -438,6 +548,37 @@ class PhotoGalleryApp {
           <span class="date-photo-count">${dateGroup.photoCount} 枚</span>
         </div>
       `;
+
+      if (this.isAdmin && album.albumId) {
+        card.querySelector('[data-date-rename]')?.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const newName = prompt('新しい撮影日グループ名を入力してください:', dateGroup.date);
+          if (!newName || newName.trim() === '' || newName.trim() === dateGroup.date) return;
+          try {
+            await this.adminFetch('api.php?action=date_group_rename', {
+              albumId: album.albumId,
+              oldDateGroup: dateGroup.date,
+              newDateGroup: newName.trim()
+            });
+            await this.reloadGalleryAndRender();
+          } catch (err) {
+            alert('変更エラー: ' + err.message);
+          }
+        });
+        card.querySelector('[data-date-delete]')?.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm(`「${dateGroup.date}」（${dateGroup.photoCount}枚）をサーバーから完全に削除しますか？`)) return;
+          try {
+            await this.adminFetch('api.php?action=date_group_delete', {
+              albumId: album.albumId,
+              dateGroup: dateGroup.date
+            });
+            await this.reloadGalleryAndRender();
+          } catch (err) {
+            alert('削除エラー: ' + err.message);
+          }
+        });
+      }
 
       card.addEventListener('click', () => {
         window.location.hash = `#/album/${encodeURIComponent(album.id)}/${encodeURIComponent(dateGroup.date)}`;
@@ -461,6 +602,10 @@ class PhotoGalleryApp {
     if (!dateGroup) {
       this.showDatesView(albumId);
       return;
+    }
+
+    if (this.dom.btnSelectAllPhotos) {
+      this.dom.btnSelectAllPhotos.style.display = this.isAdmin ? 'inline-flex' : 'none';
     }
 
     this.currentAlbum = album;
@@ -519,7 +664,12 @@ class PhotoGalleryApp {
         cameraName = `${photo.camera.make} ${photo.camera.model}`;
       }
 
+      const isSelected = photo.id && this.selectedPhotoIds.has(photo.id);
+      if (isSelected) tile.classList.add('selected');
+
       tile.innerHTML = `
+        ${this.isAdmin && photo.id ? `<input type="checkbox" class="photo-select-cb" data-photo-id="${photo.id}" ${isSelected ? 'checked' : ''} title="選択">` : ''}
+        ${this.isAdmin && photo.isPublic === false ? `<span class="photo-hidden-badge">非公開</span>` : ''}
         <img src="${thumbUrl}" alt="${photo.fileName}" loading="lazy">
         <div class="tile-overlay">
           <div class="tile-overlay-content">
@@ -530,6 +680,21 @@ class PhotoGalleryApp {
           </div>
         </div>
       `;
+
+      if (this.isAdmin && photo.id) {
+        const cb = tile.querySelector('.photo-select-cb');
+        cb?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (cb.checked) {
+            this.selectedPhotoIds.add(photo.id);
+            tile.classList.add('selected');
+          } else {
+            this.selectedPhotoIds.delete(photo.id);
+            tile.classList.remove('selected');
+          }
+          this.updateBatchBar();
+        });
+      }
 
       tile.addEventListener('click', () => {
         window.location.hash = `#/album/${encodeURIComponent(this.currentAlbum.id)}/${encodeURIComponent(this.currentDate.date)}/photo/${encodeURIComponent(photo.fileName)}`;
@@ -659,6 +824,21 @@ class PhotoGalleryApp {
     this.dom.exifAspectRatio.textContent = photo.aspectRatio ? `${photo.aspectRatio}:1` : '--';
     this.dom.exifFileSize.textContent = photo.fileSizeFormatted || '--';
     this.dom.exifAlbumName.textContent = photo.album || '--';
+
+    // 編集モード：写真メタデータ編集フォームへ流し込み
+    if (this.dom.adminPhotoEditor) {
+      if (this.isAdmin && photo.id) {
+        this.dom.adminPhotoEditor.style.display = 'block';
+        this.dom.editPhotoTitle.value = photo.title || '';
+        this.dom.editPhotoCaption.value = photo.caption || '';
+        this.dom.editPhotoTags.value = photo.tags || '';
+        this.dom.editPhotoDateGroup.value = photo.date || '';
+        this.dom.editPhotoPublic.checked = photo.isPublic !== false;
+        this.populateAlbumSelect(this.dom.editPhotoAlbum, photo.albumId, false);
+      } else {
+        this.dom.adminPhotoEditor.style.display = 'none';
+      }
+    }
   }
 
   // 前後の写真ナビゲーション
@@ -738,6 +918,437 @@ class PhotoGalleryApp {
         '"': '&quot;'
       }[tag] || tag)
     );
+  }
+
+  // =========================================================================
+  // 編集モード & 管理者機能（PHP + MySQL バックエンド用）
+  // =========================================================================
+  bindAdminEvents() {
+    // 編集モードボタン（クリック時にライブでPHPバックエンドを確認）
+    this.dom.btnEditMode?.addEventListener('click', async () => {
+      if (this.backendMode !== 'php') {
+        try {
+          const chk = await fetch('api.php?action=auth_status');
+          if (chk.ok && (chk.headers.get('content-type') || '').includes('application/json')) {
+            const st = await chk.json();
+            if (typeof st.dbConnected === 'boolean') {
+              this.backendMode = 'php';
+              if (st.authenticated) {
+                this.setAdminState(true, st.username || null);
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+      if (this.backendMode !== 'php') {
+        alert('編集モードは PHP + MySQL 環境（さくらインターネット等）でのみ利用できます。');
+        return;
+      }
+      if (this.isAdmin) {
+        const visible = this.dom.adminToolbar.style.display !== 'none';
+        this.dom.adminToolbar.style.display = visible ? 'none' : 'block';
+      } else {
+        this.openModal('loginModal');
+        setTimeout(() => this.dom.loginUsername?.focus(), 50);
+      }
+    });
+
+    // モーダル閉じる汎用ハンドラ
+    document.querySelectorAll('[data-close-modal]').forEach(el => {
+      el.addEventListener('click', () => {
+        this.closeModal(el.getAttribute('data-close-modal'));
+      });
+    });
+
+    // ログインフォーム
+    this.dom.loginForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      this.dom.loginError.style.display = 'none';
+      const username = this.dom.loginUsername.value.trim();
+      const password = this.dom.loginPassword.value;
+
+      try {
+        const res = await fetch('api.php?action=login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'ログインに失敗しました');
+        }
+        this.dom.loginPassword.value = '';
+        this.closeModal('loginModal');
+        this.setAdminState(true, data.username);
+        await this.reloadGalleryAndRender();
+      } catch (err) {
+        this.dom.loginError.textContent = err.message;
+        this.dom.loginError.style.display = 'block';
+      }
+    });
+
+    // ログアウト
+    this.dom.btnLogout?.addEventListener('click', async () => {
+      await fetch('api.php?action=logout', { method: 'POST' });
+      this.setAdminState(false, null);
+      this.selectedPhotoIds.clear();
+      this.updateBatchBar();
+      await this.reloadGalleryAndRender();
+    });
+
+    // フォルダ同期
+    this.dom.btnSyncFolders?.addEventListener('click', async () => {
+      if (!confirm('サーバー上の images/ フォルダをスキャンし、未登録の写真をデータベースに取り込みますか？')) return;
+      try {
+        const res = await this.adminFetch('api.php?action=sync', {});
+        alert(`同期完了：アルバム +${res.result.addedAlbums} 件 / 写真 +${res.result.addedPhotos} 枚`);
+        await this.reloadGalleryAndRender();
+      } catch (err) {
+        alert('同期エラー: ' + err.message);
+      }
+    });
+
+    // 新規アルバムボタン
+    this.dom.btnNewAlbum?.addEventListener('click', () => this.openAlbumModal(null));
+
+    // アルバム作成・編集フォーム
+    this.dom.albumForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const albumId = this.dom.albumFormId.value;
+      const name = this.dom.albumFormName.value.trim();
+      const description = this.dom.albumFormDesc.value.trim();
+      if (!name) return;
+
+      try {
+        if (albumId) {
+          await this.adminFetch('api.php?action=album_update', { albumId: Number(albumId), name, description });
+        } else {
+          await this.adminFetch('api.php?action=album_create', { name, description });
+        }
+        this.closeModal('albumModal');
+        await this.reloadGalleryAndRender();
+      } catch (err) {
+        alert('アルバム保存エラー: ' + err.message);
+      }
+    });
+
+    // アップロードモーダルを開く
+    this.dom.btnOpenUpload?.addEventListener('click', () => {
+      this.uploadQueueFiles = [];
+      this.renderUploadFileList();
+      this.dom.uploadStatus.style.display = 'none';
+      const defaultAlbumId = this.currentAlbum?.albumId || null;
+      this.populateAlbumSelect(this.dom.uploadAlbumSelect, defaultAlbumId, true);
+      this.dom.uploadNewAlbumWrap.style.display = this.dom.uploadAlbumSelect.value === '__new__' ? 'flex' : 'none';
+      this.dom.uploadDateGroup.value = this.currentDate?.date || new Date().toISOString().slice(0, 10);
+      this.openModal('uploadModal');
+    });
+
+    this.dom.uploadAlbumSelect?.addEventListener('change', () => {
+      this.dom.uploadNewAlbumWrap.style.display = this.dom.uploadAlbumSelect.value === '__new__' ? 'flex' : 'none';
+    });
+
+    // ドロップゾーン
+    this.dom.uploadDropzone?.addEventListener('click', () => this.dom.uploadFilesInput?.click());
+    this.dom.uploadFilesInput?.addEventListener('change', (e) => {
+      this.addUploadFiles(e.target.files);
+      e.target.value = '';
+    });
+    this.dom.uploadDropzone?.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      this.dom.uploadDropzone.classList.add('dragover');
+    });
+    this.dom.uploadDropzone?.addEventListener('dragleave', () => {
+      this.dom.uploadDropzone.classList.remove('dragover');
+    });
+    this.dom.uploadDropzone?.addEventListener('drop', (e) => {
+      e.preventDefault();
+      this.dom.uploadDropzone.classList.remove('dragover');
+      this.addUploadFiles(e.dataTransfer.files);
+    });
+
+    // アップロード実行
+    this.dom.uploadForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (this.uploadQueueFiles.length === 0) {
+        alert('アップロードする写真を選択してください。');
+        return;
+      }
+
+      const albumVal = this.dom.uploadAlbumSelect.value;
+      const newAlbumName = this.dom.uploadNewAlbumName.value.trim();
+      if (albumVal === '__new__' && !newAlbumName) {
+        alert('新規アルバム名を入力してください。');
+        return;
+      }
+
+      const formData = new FormData();
+      this.uploadQueueFiles.forEach(file => formData.append('files[]', file));
+      if (albumVal !== '__new__') {
+        formData.append('albumId', albumVal);
+      } else {
+        formData.append('newAlbumName', newAlbumName);
+      }
+      formData.append('dateGroup', this.dom.uploadDateGroup.value.trim() || new Date().toISOString().slice(0, 10));
+      formData.append('tags', this.dom.uploadTags.value.trim());
+
+      this.dom.btnSubmitUpload.disabled = true;
+      this.dom.uploadStatus.style.display = 'block';
+      this.dom.uploadStatus.textContent = `${this.uploadQueueFiles.length} 枚をアップロード中...`;
+
+      try {
+        const res = await fetch('api.php?action=upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'アップロードに失敗しました');
+
+        const errMsg = data.errors && data.errors.length ? `（エラー: ${data.errors.join(', ')}）` : '';
+        this.dom.uploadStatus.textContent = `${data.uploaded.length} 枚のアップロードが完了しました ${errMsg}`;
+        this.uploadQueueFiles = [];
+        this.renderUploadFileList();
+        await this.reloadGalleryAndRender();
+      } catch (err) {
+        this.dom.uploadStatus.textContent = 'エラー: ' + err.message;
+      } finally {
+        this.dom.btnSubmitUpload.disabled = false;
+      }
+    });
+
+    // 一括操作バー
+    this.dom.btnBatchClear?.addEventListener('click', () => {
+      this.selectedPhotoIds.clear();
+      this.updateBatchBar();
+      if (this.currentAlbum && this.currentDate) {
+        this.showPhotosView(this.currentAlbum.id, this.currentDate.date);
+      }
+    });
+
+    this.dom.btnSelectAllPhotos?.addEventListener('click', () => {
+      if (!this.isAdmin || !this.currentPhotoList.length) return;
+      this.currentPhotoList.forEach(p => {
+        if (p.id) this.selectedPhotoIds.add(p.id);
+      });
+      this.updateBatchBar();
+      this.showPhotosView(this.currentAlbum.id, this.currentDate.date);
+    });
+
+    this.dom.btnBatchMove?.addEventListener('click', () => {
+      if (this.selectedPhotoIds.size === 0) return;
+      this.populateAlbumSelect(this.dom.moveTargetAlbum, this.currentAlbum?.albumId || null, true);
+      this.dom.moveNewAlbumWrap.style.display = this.dom.moveTargetAlbum.value === '__new__' ? 'flex' : 'none';
+      this.dom.moveTargetDateGroup.value = this.currentDate?.date || new Date().toISOString().slice(0, 10);
+      this.openModal('movePhotosModal');
+    });
+
+    this.dom.moveTargetAlbum?.addEventListener('change', () => {
+      this.dom.moveNewAlbumWrap.style.display = this.dom.moveTargetAlbum.value === '__new__' ? 'flex' : 'none';
+    });
+
+    this.dom.movePhotosForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const albumVal = this.dom.moveTargetAlbum.value;
+      const newAlbumName = this.dom.moveNewAlbumName.value.trim();
+      const dateGroup = this.dom.moveTargetDateGroup.value.trim();
+      if (!dateGroup) return;
+
+      try {
+        await this.adminFetch('api.php?action=photo_move', {
+          photoIds: Array.from(this.selectedPhotoIds),
+          targetAlbumId: albumVal !== '__new__' ? Number(albumVal) : null,
+          targetAlbumName: albumVal === '__new__' ? newAlbumName : null,
+          targetDateGroup: dateGroup
+        });
+        this.closeModal('movePhotosModal');
+        this.selectedPhotoIds.clear();
+        this.updateBatchBar();
+        await this.reloadGalleryAndRender();
+      } catch (err) {
+        alert('移動エラー: ' + err.message);
+      }
+    });
+
+    this.dom.btnBatchDelete?.addEventListener('click', async () => {
+      const count = this.selectedPhotoIds.size;
+      if (count === 0) return;
+      if (!confirm(`選択した ${count} 枚の写真をサーバーから完全に削除しますか？`)) return;
+
+      try {
+        await this.adminFetch('api.php?action=photo_delete', {
+          photoIds: Array.from(this.selectedPhotoIds)
+        });
+        this.selectedPhotoIds.clear();
+        this.updateBatchBar();
+        await this.reloadGalleryAndRender();
+      } catch (err) {
+        alert('削除エラー: ' + err.message);
+      }
+    });
+
+    // Lightbox 内の単体写真編集・削除
+    this.dom.photoEditForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const photo = this.currentPhotoList[this.currentPhotoIndex];
+      if (!photo || !photo.id) return;
+
+      try {
+        await this.adminFetch('api.php?action=photo_update', {
+          photoId: photo.id,
+          title: this.dom.editPhotoTitle.value.trim(),
+          caption: this.dom.editPhotoCaption.value.trim(),
+          tags: this.dom.editPhotoTags.value.trim(),
+          album_id: Number(this.dom.editPhotoAlbum.value),
+          date_group: this.dom.editPhotoDateGroup.value.trim(),
+          is_public: this.dom.editPhotoPublic.checked
+        });
+        await this.reloadGalleryAndRender();
+        alert('写真情報を保存しました。');
+      } catch (err) {
+        alert('保存エラー: ' + err.message);
+      }
+    });
+
+    this.dom.btnDeleteSinglePhoto?.addEventListener('click', async () => {
+      const photo = this.currentPhotoList[this.currentPhotoIndex];
+      if (!photo || !photo.id) return;
+      if (!confirm(`「${photo.fileName}」をサーバーから完全に削除しますか？`)) return;
+
+      try {
+        await this.adminFetch('api.php?action=photo_delete', { photoIds: [photo.id] });
+        this.closeLightbox();
+        await this.reloadGalleryAndRender();
+      } catch (err) {
+        alert('削除エラー: ' + err.message);
+      }
+    });
+  }
+
+  async checkAuthStatus() {
+    try {
+      const res = await fetch('api.php?action=auth_status');
+      if (res.ok) {
+        const data = await res.json();
+        this.setAdminState(Boolean(data.authenticated), data.username || null);
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  setAdminState(isAdmin, username) {
+    this.isAdmin = isAdmin;
+    this.adminUser = username;
+    if (this.dom.btnEditMode) {
+      this.dom.btnEditMode.classList.toggle('active', isAdmin);
+      if (this.dom.btnEditModeLabel) {
+        this.dom.btnEditModeLabel.textContent = isAdmin ? '編集中' : '編集モード';
+      }
+    }
+    if (this.dom.adminToolbar) {
+      this.dom.adminToolbar.style.display = isAdmin ? 'block' : 'none';
+    }
+    if (this.dom.adminUserLabel && username) {
+      this.dom.adminUserLabel.textContent = `ログイン中: ${username}`;
+    }
+  }
+
+  async adminFetch(url, payload) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || 'リクエストに失敗しました');
+    }
+    return data;
+  }
+
+  async reloadGalleryAndRender() {
+    await this.loadGalleryData();
+    this.handleRouting();
+  }
+
+  openModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'flex';
+  }
+
+  closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  }
+
+  openAlbumModal(album) {
+    this.dom.albumFormId.value = album ? String(album.albumId) : '';
+    this.dom.albumFormName.value = album ? album.name : '';
+    this.dom.albumFormDesc.value = album ? (album.description || '') : '';
+    this.dom.albumModalTitle.textContent = album ? 'アルバムを編集' : '新規アルバム作成';
+    this.openModal('albumModal');
+  }
+
+  async deleteAlbum(album) {
+    if (!confirm(`アルバム「${album.name}」（写真 ${album.totalPhotos} 枚）を完全に削除しますか？`)) return;
+    try {
+      await this.adminFetch('api.php?action=album_delete', { albumId: album.albumId });
+      await this.reloadGalleryAndRender();
+    } catch (err) {
+      alert('アルバム削除エラー: ' + err.message);
+    }
+  }
+
+  populateAlbumSelect(selectEl, selectedAlbumId = null, allowNew = true) {
+    if (!selectEl) return;
+    selectEl.innerHTML = '';
+    const albums = this.data?.albums || [];
+    albums.forEach(a => {
+      if (!a.albumId) return;
+      const opt = document.createElement('option');
+      opt.value = String(a.albumId);
+      opt.textContent = `${a.name} (${a.totalPhotos}枚)`;
+      if (selectedAlbumId && Number(selectedAlbumId) === Number(a.albumId)) {
+        opt.selected = true;
+      }
+      selectEl.appendChild(opt);
+    });
+    if (allowNew) {
+      const optNew = document.createElement('option');
+      optNew.value = '__new__';
+      optNew.textContent = '+ 新しいアルバムを作成...';
+      if (albums.length === 0) optNew.selected = true;
+      selectEl.appendChild(optNew);
+    }
+  }
+
+  addUploadFiles(fileList) {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    Array.from(fileList).forEach(f => {
+      if (allowed.includes(f.type) || /\.(jpe?g|png|webp)$/i.test(f.name)) {
+        this.uploadQueueFiles.push(f);
+      }
+    });
+    this.renderUploadFileList();
+  }
+
+  renderUploadFileList() {
+    if (!this.dom.uploadFileList) return;
+    if (this.uploadQueueFiles.length === 0) {
+      this.dom.uploadFileList.innerHTML = '';
+      return;
+    }
+    this.dom.uploadFileList.innerHTML = this.uploadQueueFiles
+      .map((f, idx) => `<div>${idx + 1}. ${this.escapeHtml(f.name)} (${Math.round(f.size / 1024)} KB)</div>`)
+      .join('');
+  }
+
+  updateBatchBar() {
+    if (!this.dom.batchBar) return;
+    const count = this.selectedPhotoIds.size;
+    this.dom.batchBar.style.display = (this.isAdmin && count > 0) ? 'flex' : 'none';
+    if (this.dom.batchCount) {
+      this.dom.batchCount.textContent = `${count} 枚選択中`;
+    }
   }
 }
 

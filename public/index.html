@@ -50,6 +50,13 @@
       </nav>
 
       <div class="header-actions">
+        <button class="edit-mode-btn" id="btnEditMode" type="button" title="管理者編集モード">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 20h9"></path>
+            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+          </svg>
+          <span id="btnEditModeLabel">編集モード</span>
+        </button>
         <div class="stats-badge" id="headerStats">
           <span class="dot"></span>
           <span id="statsPhotosCount">-- 枚</span>
@@ -57,6 +64,22 @@
       </div>
     </div>
   </header>
+
+  <!-- 管理者用 編集ツールバー（ログイン時のみ表示） -->
+  <div class="admin-toolbar" id="adminToolbar" style="display: none;">
+    <div class="admin-toolbar-inner">
+      <div class="admin-toolbar-left">
+        <span class="admin-badge">編集モード</span>
+        <span class="admin-user" id="adminUserLabel">kizawa</span>
+      </div>
+      <div class="admin-toolbar-actions">
+        <button class="admin-btn primary" id="btnOpenUpload" type="button">+ 写真アップロード</button>
+        <button class="admin-btn" id="btnNewAlbum" type="button">+ 新規アルバム</button>
+        <button class="admin-btn" id="btnSyncFolders" type="button" title="サーバー上のimagesフォルダと同期">フォルダ同期</button>
+        <button class="admin-btn danger-outline" id="btnLogout" type="button">ログアウト</button>
+      </div>
+    </div>
+  </div>
 
   <!-- メインコンテンツ領域 -->
   <main class="main-content" id="mainContent">
@@ -123,6 +146,7 @@
             <h2 class="view-title" id="photosViewTitle">写真コレクション</h2>
             <p class="view-desc" id="photosViewCount">0 枚の写真</p>
           </div>
+          <button class="admin-btn" id="btnSelectAllPhotos" type="button" style="display: none; margin-left: auto;">すべて選択</button>
         </div>
 
         <!-- 500px風 Justified タイルコンテナ -->
@@ -330,12 +354,180 @@
                 </div>
               </dl>
             </div>
+
+            <!-- 編集モード用：写真メタデータ編集パネル -->
+            <div class="sidebar-section admin-photo-editor" id="adminPhotoEditor" style="display: none;">
+              <h4 class="section-sub-title">写真の編集・分類</h4>
+              <form id="photoEditForm" class="admin-form-compact">
+                <label class="admin-field">
+                  <span>タイトル</span>
+                  <input type="text" id="editPhotoTitle" placeholder="タイトル（任意）">
+                </label>
+                <label class="admin-field">
+                  <span>メモ・キャプション</span>
+                  <textarea id="editPhotoCaption" rows="2" placeholder="撮影メモ（任意）"></textarea>
+                </label>
+                <label class="admin-field">
+                  <span>タグ（カンマ区切り）</span>
+                  <input type="text" id="editPhotoTags" placeholder="夜景, 桜, 飛行機">
+                </label>
+                <label class="admin-field">
+                  <span>アルバム</span>
+                  <select id="editPhotoAlbum"></select>
+                </label>
+                <label class="admin-field">
+                  <span>撮影日グループ</span>
+                  <input type="text" id="editPhotoDateGroup" placeholder="2026-11-13">
+                </label>
+                <label class="admin-checkbox">
+                  <input type="checkbox" id="editPhotoPublic" checked>
+                  <span>一般公開する</span>
+                </label>
+                <div class="admin-form-actions">
+                  <button type="submit" class="admin-btn primary">保存</button>
+                  <button type="button" class="admin-btn danger" id="btnDeleteSinglePhoto">削除</button>
+                </div>
+              </form>
+            </div>
           </div>
         </aside>
       </div>
     </div>
   </div>
 
-  <script src="js/app.js"></script>
+  <!-- 一括操作フローティングバー -->
+  <div class="batch-bar" id="batchBar" style="display: none;">
+    <span class="batch-count" id="batchCount">0 枚選択中</span>
+    <div class="batch-actions">
+      <button class="admin-btn primary" id="btnBatchMove" type="button">移動・分類</button>
+      <button class="admin-btn danger" id="btnBatchDelete" type="button">削除</button>
+      <button class="admin-btn" id="btnBatchClear" type="button">選択解除</button>
+    </div>
+  </div>
+
+  <!-- ログインモーダル -->
+  <div class="admin-modal" id="loginModal" style="display: none;">
+    <div class="admin-modal-backdrop" data-close-modal="loginModal"></div>
+    <div class="admin-modal-dialog">
+      <div class="admin-modal-header">
+        <h3>編集モード ログイン</h3>
+        <button class="admin-modal-close" type="button" data-close-modal="loginModal">&times;</button>
+      </div>
+      <form id="loginForm" class="admin-form">
+        <label class="admin-field">
+          <span>アカウント</span>
+          <input type="text" id="loginUsername" autocomplete="username" required placeholder="kizawa">
+        </label>
+        <label class="admin-field">
+          <span>パスワード</span>
+          <input type="password" id="loginPassword" autocomplete="current-password" required placeholder="パスワードを入力">
+        </label>
+        <p class="admin-error" id="loginError" style="display: none;"></p>
+        <div class="admin-form-actions">
+          <button type="button" class="admin-btn" data-close-modal="loginModal">キャンセル</button>
+          <button type="submit" class="admin-btn primary">ログイン</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 写真アップロードモーダル -->
+  <div class="admin-modal" id="uploadModal" style="display: none;">
+    <div class="admin-modal-backdrop" data-close-modal="uploadModal"></div>
+    <div class="admin-modal-dialog wide">
+      <div class="admin-modal-header">
+        <h3>写真アップロード</h3>
+        <button class="admin-modal-close" type="button" data-close-modal="uploadModal">&times;</button>
+      </div>
+      <form id="uploadForm" class="admin-form">
+        <div class="dropzone" id="uploadDropzone">
+          <p class="dropzone-title">ここに写真をドラッグ＆ドロップ、またはクリックして選択</p>
+          <p class="dropzone-sub">JPG / PNG / WebP 対応（複数選択可）</p>
+          <input type="file" id="uploadFilesInput" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        </div>
+        <div class="upload-file-list" id="uploadFileList"></div>
+        <div class="admin-form-grid">
+          <label class="admin-field">
+            <span>アップロード先アルバム</span>
+            <select id="uploadAlbumSelect"></select>
+          </label>
+          <label class="admin-field" id="uploadNewAlbumWrap" style="display: none;">
+            <span>新規アルバム名</span>
+            <input type="text" id="uploadNewAlbumName" placeholder="例: 東京夜景">
+          </label>
+          <label class="admin-field">
+            <span>撮影日グループ</span>
+            <input type="text" id="uploadDateGroup" placeholder="2026-11-13">
+          </label>
+          <label class="admin-field">
+            <span>タグ（任意・カンマ区切り）</span>
+            <input type="text" id="uploadTags" placeholder="風景, 夜景">
+          </label>
+        </div>
+        <p class="admin-status" id="uploadStatus" style="display: none;"></p>
+        <div class="admin-form-actions">
+          <button type="button" class="admin-btn" data-close-modal="uploadModal">閉じる</button>
+          <button type="submit" class="admin-btn primary" id="btnSubmitUpload">アップロード開始</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- アルバム作成・編集モーダル -->
+  <div class="admin-modal" id="albumModal" style="display: none;">
+    <div class="admin-modal-backdrop" data-close-modal="albumModal"></div>
+    <div class="admin-modal-dialog">
+      <div class="admin-modal-header">
+        <h3 id="albumModalTitle">新規アルバム</h3>
+        <button class="admin-modal-close" type="button" data-close-modal="albumModal">&times;</button>
+      </div>
+      <form id="albumForm" class="admin-form">
+        <input type="hidden" id="albumFormId">
+        <label class="admin-field">
+          <span>アルバム名</span>
+          <input type="text" id="albumFormName" required placeholder="アルバム名を入力">
+        </label>
+        <label class="admin-field">
+          <span>説明（任意）</span>
+          <textarea id="albumFormDesc" rows="3" placeholder="アルバムの説明"></textarea>
+        </label>
+        <div class="admin-form-actions">
+          <button type="button" class="admin-btn" data-close-modal="albumModal">キャンセル</button>
+          <button type="submit" class="admin-btn primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 写真移動モーダル -->
+  <div class="admin-modal" id="movePhotosModal" style="display: none;">
+    <div class="admin-modal-backdrop" data-close-modal="movePhotosModal"></div>
+    <div class="admin-modal-dialog">
+      <div class="admin-modal-header">
+        <h3>選択した写真を移動・分類</h3>
+        <button class="admin-modal-close" type="button" data-close-modal="movePhotosModal">&times;</button>
+      </div>
+      <form id="movePhotosForm" class="admin-form">
+        <label class="admin-field">
+          <span>移動先アルバム</span>
+          <select id="moveTargetAlbum"></select>
+        </label>
+        <label class="admin-field" id="moveNewAlbumWrap" style="display: none;">
+          <span>新規アルバム名</span>
+          <input type="text" id="moveNewAlbumName" placeholder="新しいアルバム名">
+        </label>
+        <label class="admin-field">
+          <span>移動先の撮影日グループ</span>
+          <input type="text" id="moveTargetDateGroup" required placeholder="2026-11-13">
+        </label>
+        <div class="admin-form-actions">
+          <button type="button" class="admin-btn" data-close-modal="movePhotosModal">キャンセル</button>
+          <button type="submit" class="admin-btn primary">移動する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

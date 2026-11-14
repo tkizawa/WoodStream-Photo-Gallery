@@ -1191,3 +1191,392 @@ body {
   text-decoration: underline;
   color: var(--accent-cyan);
 }
+
+
+/* ============================================================
+   編集モード & 管理者UI スタイル
+   ============================================================ */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.edit-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.edit-mode-btn:hover {
+  background: rgba(56, 189, 248, 0.14);
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #fff;
+}
+
+.edit-mode-btn.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(99, 102, 241, 0.25));
+  border-color: var(--accent-cyan);
+  color: #fff;
+}
+
+.admin-toolbar {
+  position: sticky;
+  top: 64px;
+  z-index: 95;
+  background: rgba(15, 23, 42, 0.94);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.admin-toolbar-inner {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 10px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-badge {
+  background: var(--accent-gradient);
+  color: #090a0f;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.admin-user {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.admin-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.admin-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  font-size: 0.84rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.admin-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.admin-btn.primary {
+  background: linear-gradient(135deg, #38bdf8, #6366f1);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+
+.admin-btn.primary:hover {
+  filter: brightness(1.1);
+}
+
+.admin-btn.danger {
+  background: rgba(239, 68, 68, 0.85);
+  border-color: transparent;
+  color: #fff;
+}
+
+.admin-btn.danger:hover {
+  background: rgba(220, 38, 38, 1);
+}
+
+.admin-btn.danger-outline {
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+  background: transparent;
+}
+
+.admin-btn.danger-outline:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* アルバムカード・撮影日カード編集ボタン */
+.album-card,
+.date-card {
+  position: relative;
+}
+
+.album-admin-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+}
+
+.album-admin-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(9, 10, 15, 0.82);
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.album-admin-btn:hover {
+  background: rgba(56, 189, 248, 0.85);
+  color: #090a0f;
+}
+
+.album-admin-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+}
+
+/* 写真選択チェックボックス */
+.photo-select-cb {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 6;
+  width: 22px;
+  height: 22px;
+  accent-color: #38bdf8;
+  cursor: pointer;
+}
+
+.photo-card.selected {
+  outline: 3px solid #38bdf8;
+  outline-offset: -3px;
+}
+
+.photo-hidden-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+  background: rgba(245, 158, 11, 0.9);
+  color: #090a0f;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+/* 一括操作バー */
+.batch-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  border-radius: 14px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+}
+
+.batch-count {
+  font-weight: 600;
+  color: #38bdf8;
+  font-size: 0.9rem;
+}
+
+.batch-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* モーダル共通 */
+.admin-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.admin-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.admin-modal-dialog {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.admin-modal-dialog.wide {
+  max-width: 640px;
+}
+
+.admin-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.admin-modal-header h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.admin-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.admin-form, .admin-form-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.admin-field input,
+.admin-field select,
+.admin-field textarea {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.admin-field select option {
+  background: #111827;
+  color: #fff;
+}
+
+.admin-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.admin-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.admin-error {
+  color: #f87171;
+  font-size: 0.85rem;
+}
+
+.admin-status {
+  color: #38bdf8;
+  font-size: 0.85rem;
+}
+
+.dropzone {
+  border: 2px dashed rgba(56, 189, 248, 0.45);
+  border-radius: 12px;
+  padding: 28px 16px;
+  text-align: center;
+  cursor: pointer;
+  background: rgba(56, 189, 248, 0.05);
+  transition: all 0.2s ease;
+}
+
+.dropzone.dragover {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: #38bdf8;
+}
+
+.dropzone-title {
+  color: #fff;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.dropzone-sub {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.upload-file-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.admin-photo-editor {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}

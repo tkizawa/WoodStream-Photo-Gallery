@@ -1,13 +1,13 @@
 node_modules/
 .cache/
 dist/
-Installer/
-MSIX/
 .DS_Store
 Thumbs.db
 
-# 写真データは除外（ガイドとサンプルフォルダ構造のみ保持）
-images/*
-!images/README.md
-!images/Sample-Album/
-!images/Sample-Album/**
+# サーバー設定（機密情報）
+public/config.php
+
+# サーバー保存写真およびキャッシュ
+public/images/*
+!public/images/.gitkeep
+public/.cache/

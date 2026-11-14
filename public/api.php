@@ -1,247 +1,211 @@
 <?php
 /**
- * LuminaLens - さくらのレンタルサーバ用 PHP バックエンド
- * サーバー上の images フォルダを自動解析し、EXIF抽出 & サムネイル生成キャッシュを行います。
+ * WoodStream Photo Gallery - さくらのレンタルサーバ用 PHP バックエンド API
+ * MySQL 連携・Web編集モード認証・アップロード・整理・削除・サムネイル配信を提供します。
  */
 
-header('Content-Type: application/json; charset=UTF-8');
-header('Access-Control-Allow-Origin: *');
+require_once __DIR__ . '/lib/GalleryCore.php';
 
-$imagesDir = __DIR__ . '/images';
-if (!is_dir($imagesDir)) {
-    $imagesDir = __DIR__ . '/imeges';
-}
-
-$cacheDir = __DIR__ . '/.cache';
-$thumbDir = $cacheDir . '/thumbnails';
-
-if (!is_dir($cacheDir)) @mkdir($cacheDir, 0755, true);
-if (!is_dir($thumbDir)) @mkdir($thumbDir, 0755, true);
+$core = new GalleryCore();
 
 // サムネイル配信モード (?thumb=1&path=...&w=600)
 if (isset($_GET['thumb']) && isset($_GET['path'])) {
-    serveThumbnail($_GET['path'], isset($_GET['w']) ? (int)$_GET['w'] : 600, $imagesDir, $thumbDir);
+    $core->serveThumbnail((string)$_GET['path'], isset($_GET['w']) ? (int)$_GET['w'] : 600);
     exit;
 }
 
-// データ一覧取得モード
-function formatShutterSpeed($exp) {
-    if (!$exp) return null;
-    if (strpos($exp, '/') !== false) return $exp . 's';
-    $val = (float)$exp;
-    if ($val <= 0) return null;
-    if ($val >= 1) return round($val, 1) . 's';
-    $denom = round(1 / $val);
-    return "1/{$denom}s";
+header('Content-Type: application/json; charset=UTF-8');
+
+$action = $_GET['action'] ?? '';
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+function jsonInput(): array
+{
+    $raw = file_get_contents('php://input');
+    if (!$raw) return [];
+    $decoded = json_decode($raw, true);
+    return is_array($decoded) ? $decoded : [];
 }
 
-function formatFileSize($bytes) {
-    if (!$bytes) return '0 B';
-    $units = ['B', 'KB', 'MB', 'GB'];
-    $pow = floor(log($bytes, 1024));
-    return round($bytes / pow(1024, $pow), 1) . ' ' . $units[$pow];
+function respond(array $data, int $status = 200): void
+{
+    http_response_code($status);
+    echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    exit;
 }
 
-function getExifData($filePath, $relPath) {
-    $size = filesize($filePath);
-    $imgSize = @getimagesize($filePath);
-    $width = $imgSize ? $imgSize[0] : 1920;
-    $height = $imgSize ? $imgSize[1] : 1080;
+function requireAdminAuth(GalleryCore $core): void
+{
+    if (!$core->isAdmin()) {
+        respond(['error' => '管理者認証が必要です。編集モードにログインしてください。'], 401);
+    }
+}
 
-    $exif = @exif_read_data($filePath, 'EXIF', true);
-
-    $make = isset($exif['IFD0']['Make']) ? trim($exif['IFD0']['Make']) : '';
-    $model = isset($exif['IFD0']['Model']) ? trim($exif['IFD0']['Model']) : 'Unknown Camera';
-    $lens = isset($exif['EXIF']['UndefinedTag:0xA434']) ? trim($exif['EXIF']['UndefinedTag:0xA434']) : (isset($exif['EXIF']['LensModel']) ? trim($exif['EXIF']['LensModel']) : '');
-
-    // 撮影日時
-    $dt = isset($exif['EXIF']['DateTimeOriginal']) ? $exif['EXIF']['DateTimeOriginal'] : (isset($exif['IFD0']['DateTime']) ? $exif['IFD0']['DateTime'] : date('c', filemtime($filePath)));
-    if (preg_match('/^(\d{4}):(\d{2}):(\d{2}) (\d{2}:\d{2}:\d{2})/', $dt, $m)) {
-        $dt = "{$m[1]}-{$m[2]}-{$m[3]}T{$m[4]}+09:00";
+try {
+    // 1. 認証ステータス確認
+    if ($action === 'auth_status') {
+        respond([
+            'authenticated' => $core->isAdmin(),
+            'username' => $core->getAdminUsername(),
+            'dbConnected' => $core->getDb() !== null,
+        ]);
     }
 
-    // パラメータ
-    $focal = isset($exif['EXIF']['FocalLength']) ? $exif['EXIF']['FocalLength'] : null;
-    if ($focal && strpos($focal, '/') !== false) {
-        $parts = explode('/', $focal);
-        $focal = ((float)$parts[1] > 0) ? round((float)$parts[0] / (float)$parts[1]) . 'mm' : null;
-    } elseif ($focal) {
-        $focal = round((float)$focal) . 'mm';
-    }
+    // 2. ログイン
+    if ($action === 'login' && $method === 'POST') {
+        $input = jsonInput();
+        $username = trim((string)($input['username'] ?? ''));
+        $password = (string)($input['password'] ?? '');
 
-    $fNum = isset($exif['EXIF']['FNumber']) ? $exif['EXIF']['FNumber'] : null;
-    if ($fNum && strpos($fNum, '/') !== false) {
-        $parts = explode('/', $fNum);
-        $fNum = ((float)$parts[1] > 0) ? 'f/' . round((float)$parts[0] / (float)$parts[1], 1) : null;
-    }
-
-    $shutter = isset($exif['EXIF']['ExposureTime']) ? formatShutterSpeed($exif['EXIF']['ExposureTime']) : null;
-    $iso = isset($exif['EXIF']['ISOSpeedRatings']) ? 'ISO ' . $exif['EXIF']['ISOSpeedRatings'] : null;
-
-    $bias = isset($exif['EXIF']['ExposureBiasValue']) ? $exif['EXIF']['ExposureBiasValue'] : null;
-    $biasStr = '0 EV';
-    if ($bias) {
-        if (strpos($bias, '/') !== false) {
-            $parts = explode('/', $bias);
-            $val = ((float)$parts[1] > 0) ? (float)$parts[0] / (float)$parts[1] : 0;
-            $biasStr = ($val > 0 ? '+' : '') . round($val, 1) . ' EV';
+        if ($core->login($username, $password)) {
+            respond([
+                'authenticated' => true,
+                'username' => $core->getAdminUsername(),
+                'dbConnected' => $core->getDb() !== null,
+            ]);
         }
+        respond(['error' => 'アカウント名またはパスワードが正しくありません。'], 401);
     }
 
-    // オリエンテーションによる回転
-    $orientation = isset($exif['IFD0']['Orientation']) ? $exif['IFD0']['Orientation'] : 1;
-    if (in_array($orientation, [6, 8])) {
-        $tmp = $width; $width = $height; $height = $tmp;
+    // 3. ログアウト
+    if ($action === 'logout' && $method === 'POST') {
+        $core->logout();
+        respond(['authenticated' => false]);
     }
 
-    $aspectRatio = ($height > 0) ? round($width / $height, 4) : 1.5;
-
-    return [
-        'fileName' => basename($filePath),
-        'relPath' => str_replace('\\', '/', $relPath),
-        'fileSize' => $size,
-        'fileSizeFormatted' => formatFileSize($size),
-        'width' => $width,
-        'height' => $height,
-        'aspectRatio' => $aspectRatio,
-        'dateTime' => $dt,
-        'camera' => [
-            'make' => $make,
-            'model' => $model,
-            'lens' => $lens ?: 'Lens'
-        ],
-        'params' => [
-            'focalLength' => $focal,
-            'focalLengthIn35mm' => null,
-            'fNumber' => $fNum,
-            'shutterSpeed' => $shutter,
-            'iso' => $iso,
-            'exposureCompensation' => $biasStr,
-            'exposureProgram' => isset($exif['EXIF']['ExposureProgram']) ? 'AE' : null,
-            'meteringMode' => isset($exif['EXIF']['MeteringMode']) ? 'Evaluative' : null,
-            'whiteBalance' => isset($exif['EXIF']['WhiteBalance']) && $exif['EXIF']['WhiteBalance'] == 1 ? 'Manual' : 'Auto',
-            'flash' => isset($exif['EXIF']['Flash']) && ($exif['EXIF']['Flash'] & 1) ? 'Fired' : 'Did not fire'
-        ]
-    ];
-}
-
-// サムネイル配信
-function serveThumbnail($relPath, $targetWidth, $imagesDir, $thumbDir) {
-    $cleanPath = str_replace(['..', '\\'], ['', '/'], $relPath);
-    $fullPath = $imagesDir . '/' . ltrim($cleanPath, '/');
-
-    if (!file_exists($fullPath)) {
-        header('HTTP/1.1 404 Not Found');
-        echo 'Not found';
-        exit;
+    // 4. 管理者操作系
+    if ($action === 'sync' && $method === 'POST') {
+        requireAdminAuth($core);
+        $res = $core->syncFromFilesystem();
+        respond(['success' => true, 'result' => $res]);
     }
 
-    $mtime = filemtime($fullPath);
-    $cacheName = md5($cleanPath . '_' . $mtime . '_' . $targetWidth) . '.jpg';
-    $cachedFile = $thumbDir . '/' . $cacheName;
-
-    if (file_exists($cachedFile)) {
-        header('Content-Type: image/jpeg');
-        header('Cache-Control: public, max-age=86400, immutable');
-        readfile($cachedFile);
-        exit;
+    if ($action === 'album_create' && $method === 'POST') {
+        requireAdminAuth($core);
+        $input = jsonInput();
+        $album = $core->createAlbum((string)($input['name'] ?? ''), (string)($input['description'] ?? ''));
+        respond(['success' => true, 'album' => $album]);
     }
 
-    // GDでリサイズ生成
-    $source = @imagecreatefromjpeg($fullPath);
-    if (!$source) {
-        header('Content-Type: image/jpeg');
-        readfile($fullPath);
-        exit;
+    if ($action === 'album_update' && $method === 'POST') {
+        requireAdminAuth($core);
+        $input = jsonInput();
+        $album = $core->updateAlbum(
+            (int)($input['albumId'] ?? 0),
+            isset($input['name']) ? (string)$input['name'] : null,
+            isset($input['description']) ? (string)$input['description'] : null
+        );
+        respond(['success' => true, 'album' => $album]);
     }
 
-    // EXIF orientation
-    $exif = @exif_read_data($fullPath);
-    $ort = isset($exif['Orientation']) ? $exif['Orientation'] : 1;
-    if ($ort == 6) {
-        $source = imagerotate($source, -90, 0);
-    } elseif ($ort == 8) {
-        $source = imagerotate($source, 90, 0);
-    } elseif ($ort == 3) {
-        $source = imagerotate($source, 180, 0);
+    if ($action === 'album_delete' && $method === 'POST') {
+        requireAdminAuth($core);
+        $input = jsonInput();
+        $res = $core->deleteAlbum((int)($input['albumId'] ?? 0));
+        respond(['success' => true, 'result' => $res]);
     }
 
-    $origW = imagesx($source);
-    $origH = imagesy($source);
-
-    if ($origW > $targetWidth) {
-        $targetHeight = (int)round(($origH / $origW) * $targetWidth);
-        $thumb = imagecreatetruecolor($targetWidth, $targetHeight);
-        imagecopyresampled($thumb, $source, 0, 0, 0, 0, $targetWidth, $targetHeight, $origW, $origH);
-        imagedestroy($source);
-        imagejpeg($thumb, $cachedFile, 82);
-        imagedestroy($thumb);
-    } else {
-        imagejpeg($source, $cachedFile, 85);
-        imagedestroy($source);
+    if ($action === 'date_group_rename' && $method === 'POST') {
+        requireAdminAuth($core);
+        $input = jsonInput();
+        $res = $core->renameDateGroup(
+            (int)($input['albumId'] ?? 0),
+            (string)($input['oldDateGroup'] ?? ''),
+            (string)($input['newDateGroup'] ?? '')
+        );
+        respond(['success' => true, 'result' => $res]);
     }
 
-    header('Content-Type: image/jpeg');
-    header('Cache-Control: public, max-age=86400, immutable');
-    readfile($cachedFile);
-    exit;
-}
+    if ($action === 'date_group_delete' && $method === 'POST') {
+        requireAdminAuth($core);
+        $input = jsonInput();
+        $res = $core->deleteDateGroup(
+            (int)($input['albumId'] ?? 0),
+            (string)($input['dateGroup'] ?? '')
+        );
+        respond(['success' => true, 'result' => $res]);
+    }
 
-// アルバム一覧スキャン
-$albums = [];
-if (is_dir($imagesDir)) {
-    $albumDirs = scandir($imagesDir);
-    foreach ($albumDirs as $aDir) {
-        if ($aDir === '.' || $aDir === '..' || !is_dir($imagesDir . '/' . $aDir)) continue;
+    if ($action === 'upload' && $method === 'POST') {
+        requireAdminAuth($core);
 
-        $albumPath = $imagesDir . '/' . $aDir;
-        $dateDirs = scandir($albumPath);
-        rsort($dateDirs);
+        $albumId = !empty($_POST['albumId']) ? (int)$_POST['albumId'] : null;
+        $albumName = trim((string)($_POST['newAlbumName'] ?? ''));
+        $dateGroup = trim((string)($_POST['dateGroup'] ?? date('Y-m-d')));
+        $title = trim((string)($_POST['title'] ?? ''));
+        $caption = trim((string)($_POST['caption'] ?? ''));
+        $tags = trim((string)($_POST['tags'] ?? ''));
 
-        $dates = [];
-        $albumPhotos = [];
+        if (empty($_FILES['files'])) {
+            respond(['error' => 'アップロードする画像ファイルが選択されていません。'], 400);
+        }
 
-        foreach ($dateDirs as $dDir) {
-            if ($dDir === '.' || $dDir === '..' || !is_dir($albumPath . '/' . $dDir)) continue;
+        $files = $_FILES['files'];
+        $uploaded = [];
+        $errors = [];
 
-            $datePath = $albumPath . '/' . $dDir;
-            $files = scandir($datePath);
-            $photos = [];
+        $count = is_array($files['name']) ? count($files['name']) : 1;
+        for ($i = 0; $i < $count; $i++) {
+            $name = is_array($files['name']) ? $files['name'][$i] : $files['name'];
+            $tmpName = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
+            $errCode = is_array($files['error']) ? $files['error'][$i] : $files['error'];
 
-            foreach ($files as $file) {
-                if (preg_match('/\.(jpe?g|png|webp)$/i', $file)) {
-                    $fullPath = $datePath . '/' . $file;
-                    $relPath = $aDir . '/' . $dDir . '/' . $file;
-                    $meta = getExifData($fullPath, $relPath);
-                    $meta['album'] = $aDir;
-                    $meta['date'] = $dDir;
-                    $photos[] = $meta;
+            if ($errCode !== UPLOAD_ERR_OK) {
+                $errors[] = "{$name}: アップロードエラー (code {$errCode})";
+                continue;
+            }
+
+            try {
+                $photo = $core->uploadPhoto($tmpName, $name, $albumId, $albumName, $dateGroup, $title, $caption, $tags);
+                if (!$albumId && !empty($photo['albumId'])) {
+                    $albumId = (int)$photo['albumId'];
+                    $albumName = '';
                 }
-            }
-
-            if (!empty($photos)) {
-                $dates[] = [
-                    'date' => $dDir,
-                    'photoCount' => count($photos),
-                    'coverPhoto' => $photos[0],
-                    'photos' => $photos
-                ];
-                $albumPhotos = array_merge($albumPhotos, $photos);
+                $uploaded[] = $photo;
+            } catch (Throwable $e) {
+                $errors[] = "{$name}: " . $e->getMessage();
             }
         }
 
-        if (!empty($albumPhotos)) {
-            $albums[] = [
-                'id' => $aDir,
-                'name' => $aDir,
-                'totalPhotos' => count($albumPhotos),
-                'totalDates' => count($dates),
-                'coverPhoto' => $albumPhotos[0],
-                'latestDate' => isset($dates[0]) ? $dates[0]['date'] : null,
-                'dates' => $dates
-            ];
-        }
+        respond([
+            'success' => count($uploaded) > 0,
+            'uploaded' => $uploaded,
+            'errors' => $errors,
+        ], count($uploaded) > 0 ? 200 : 400);
     }
-}
 
-echo json_encode(['albums' => $albums], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    if ($action === 'photo_update' && $method === 'POST') {
+        requireAdminAuth($core);
+        $input = jsonInput();
+        $photoId = (int)($input['photoId'] ?? 0);
+        $photo = $core->updatePhoto($photoId, $input);
+        respond(['success' => true, 'photo' => $photo]);
+    }
+
+    if ($action === 'photo_move' && $method === 'POST') {
+        requireAdminAuth($core);
+        $input = jsonInput();
+        $photoIds = $input['photoIds'] ?? [];
+        $targetAlbumId = !empty($input['targetAlbumId']) ? (int)$input['targetAlbumId'] : null;
+        $targetAlbumName = isset($input['targetAlbumName']) ? trim((string)$input['targetAlbumName']) : null;
+        $targetDateGroup = trim((string)($input['targetDateGroup'] ?? ''));
+
+        $moved = $core->movePhotos($photoIds, $targetAlbumId, $targetAlbumName, $targetDateGroup);
+        respond(['success' => true, 'moved' => $moved]);
+    }
+
+    if ($action === 'photo_delete' && $method === 'POST') {
+        requireAdminAuth($core);
+        $input = jsonInput();
+        $photoIds = $input['photoIds'] ?? [];
+        $res = $core->deletePhotos($photoIds);
+        respond(['success' => true, 'result' => $res]);
+    }
+
+    // 5. デフォルト: ギャラリーデータ一覧取得
+    $includeHidden = $core->isAdmin();
+    $data = $core->getGalleryData($includeHidden);
+    respond($data);
+} catch (Throwable $e) {
+    respond(['error' => $e->getMessage()], 500);
+}
